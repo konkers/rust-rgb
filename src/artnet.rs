@@ -276,6 +276,36 @@ impl PollReply {
 }
 
 #[derive(Debug)]
+pub struct Output<'a> {
+    prot_ver: [u8; 2],
+    sequence: u8,
+    physical: u8,
+    sub_uni: u8,
+    net: u8,
+    data: &'a [u8],
+}
+impl<'a> Output<'a> {
+    fn parse(buf: &mut OldBuffer<'a, LittleEndian>) -> Result<Self> {
+        let prot_ver = buf.read()?;
+        let sequence = buf.read_u8()?;
+        let physical = buf.read_u8()?;
+        let sub_uni = buf.read_u8()?;
+        let net = buf.read_u8()?;
+        let len_raw: [u8; 2] = buf.read()?;
+        let len = (len_raw[0] as u16) << 8 | len_raw[1] as u16;
+        let data = buf.take(len as usize)?;
+        Ok(Self {
+            prot_ver,
+            sequence,
+            physical,
+            sub_uni,
+            net,
+            data,
+        })
+    }
+}
+
+#[derive(Debug)]
 pub struct Unknown<'a> {
     pub data: &'a [u8],
 }
@@ -284,6 +314,7 @@ pub struct Unknown<'a> {
 pub enum Packet<'a> {
     Poll(Poll),
     PollReply(PollReply),
+    Output(Output<'a>),
     Unknown(Unknown<'a>),
 }
 
@@ -304,6 +335,7 @@ impl<'a> Packet<'a> {
         match opcode {
             Opcode::Poll => Ok(Packet::Poll(Poll::parse(buf)?)),
             Opcode::PollReply => Ok(Packet::PollReply(PollReply::parse(buf)?)),
+            Opcode::Output => Ok(Packet::Output(Output::parse(buf)?)),
             _ => Ok(Packet::Unknown(Unknown { data })),
         }
     }
@@ -340,10 +372,10 @@ async fn send_poll_reply(
         vers_info: [0x0, 0x0],
         net_switch: 0,
         sub_switch: 0,
-        oem: [0x09, 0x69], //[0x00, 0xff],
+        oem: [0x00, 0xff],
         ubea_version: 0,
-        status_1: 0xe2,
-        esta_man: [0x6b, 0x6a], //[0xff, 0xff],
+        status_1: 0xe0,
+        esta_man: [0xff, 0xff],
         short_name: padded_byte_str(b"Blinky"),
         long_name: padded_byte_str(b"Konkers' Blinky Toy"),
         node_report: padded_byte_str(b"It's all good!"),
@@ -351,8 +383,8 @@ async fn send_poll_reply(
         port_types: [0xc0, 0x00, 0x00, 0x00],
         good_input: [8; 4],
         good_output: [0x82, 0, 0, 0],
-        sw_in: [4, 0, 0, 0],
-        sw_out: [4, 0, 0, 0],
+        sw_in: [0, 0, 0, 0],
+        sw_out: [0, 0, 0, 0],
         acn_priority: 0,
         sw_macro: 0,
         sw_remote: 0,
@@ -364,7 +396,7 @@ async fn send_poll_reply(
         status_2: 0x1e,
         good_output_b: [0xc0; 4],
         status_3: 0x30,
-        default_resp_uid: [0x6a, 0x6b, 0xee, 0x22, 0x17, 0x43],
+        default_resp_uid: [0; 6], //[0x6a, 0x6b, 0xee, 0x22, 0x17, 0x43],
     });
 
     let len = reply.write(buf)?;
@@ -406,17 +438,19 @@ pub(crate) async fn task(stack: &'static Stack<WifiDevice>) {
     loop {
         let (length, ep) = socket.recv_from(&mut buf).await.unwrap();
         if let Ok(packet) = Packet::parse(&buf[..length]) {
-            if let Packet::Poll(poll) = packet {
-                println!("sending poll reply to {poll:x?}");
-                //Timer::after(Duration::from_millis(750)).await;
-                send_poll_reply(&mut socket, &my_address, &ep, &mut buf)
-                    .await
-                    .ok();
-            } else {
-                println!("artnet packet: {:x?}", &packet);
+            match packet {
+                Packet::Poll(poll) => {
+                    println!("sending poll reply to {poll:x?}");
+                    Timer::after(Duration::from_millis(150)).await;
+                    send_poll_reply(&mut socket, &my_address, &ep, &mut buf)
+                        .await
+                        .ok();
+                }
+                Packet::Output(output) => println!("got output packet: {output:x?}"),
+                _ => (), //println!("artnet packet: {:x?}", &packet);
             }
         } else {
-            println!("artnet {:x?}", &buf[..length]);
+            //println!("artnet {:x?}", &buf[..length]);
         }
     }
 }
