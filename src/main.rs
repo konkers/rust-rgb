@@ -5,31 +5,33 @@
 #![feature(type_alias_impl_trait)]
 #![feature(error_in_core)]
 
-use embassy_executor::_export::StaticCell;
-use embassy_net::tcp::TcpSocket;
-use embassy_net::{Config, IpListenEndpoint, Ipv4Address, Stack, StackResources};
-use esp32c3_hal as hal;
+use core::option_env;
 
 use embassy_executor::Executor;
+use embassy_executor::_export::StaticCell;
+use embassy_net::tcp::TcpSocket;
+use embassy_net::{Config, IpListenEndpoint, Stack, StackResources};
 use embassy_time::{Duration, Timer};
 use embedded_svc::wifi::{ClientConfiguration, Configuration, Wifi};
+use esp32c3_hal as hal;
 use esp_backtrace as _;
 use esp_println::logger::init_logger;
 use esp_println::println;
 use esp_wifi::initialize;
 use esp_wifi::wifi::{WifiController, WifiDevice, WifiEvent, WifiState};
 use hal::clock::{ClockControl, CpuClock};
+use hal::system::SystemExt;
 use hal::Rng;
 use hal::{embassy, peripherals::Peripherals, prelude::*, timer::TimerGroup, Rtc};
-
-use hal::system::SystemExt;
 use riscv_rt::entry;
 use smoltcp::socket::tcp::State;
 
+mod artnet;
+mod buffer;
 mod web;
 
-const SSID: &str = env!("SSID");
-const PASSWORD: &str = env!("PASSWORD");
+const SSID: Option<&str> = option_env!("SSID");
+const PASSWORD: Option<&str> = option_env!("PASSWORD");
 
 macro_rules! singleton {
     ($val:expr) => {{
@@ -85,6 +87,7 @@ fn main() -> ! {
     executor.run(|spawner| {
         spawner.spawn(connection(controller)).ok();
         spawner.spawn(net_task(&stack)).ok();
+        spawner.spawn(artnet::task(&stack)).ok();
         spawner.spawn(task(1, &stack)).ok();
         spawner.spawn(task(2, &stack)).ok();
         spawner.spawn(task(3, &stack)).ok();
@@ -106,8 +109,8 @@ async fn connection(mut controller: WifiController) {
         }
         if !matches!(controller.is_started(), Ok(true)) {
             let client_config = Configuration::Client(ClientConfiguration {
-                ssid: SSID.into(),
-                password: PASSWORD.into(),
+                ssid: SSID.unwrap().into(),
+                password: PASSWORD.unwrap().into(),
                 ..Default::default()
             });
             controller.set_configuration(&client_config).unwrap();
