@@ -7,10 +7,18 @@ use embassy_net::{
     udp::UdpSocket, Config, IpListenEndpoint, PacketMetadata, Stack, StackResources,
 };
 use embassy_time::{Duration, Timer};
+use esp32c3_hal::gpio::{
+    Bank0GpioRegisterAccess, Gpio2Signals, GpioPin, InputOutputAnalogPinType,
+    SingleCoreInteruptStatusRegisterAccessBank0,
+};
+use esp32c3_hal::pulse_control::{Channel0, ConfiguredChannel0};
+use esp32c3_hal::utils::SmartLedsAdapter;
+use esp32c3_hal::PulseControl;
 use esp_println::println;
 use esp_wifi::wifi::{WifiController, WifiDevice, WifiEvent, WifiState};
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
+use smart_leds::{brightness, gamma, SmartLedsWrite, RGB};
 use smoltcp::wire::IpEndpoint;
 
 use crate::buffer::{self, MutBuffer, OldBuffer};
@@ -413,7 +421,23 @@ async fn send_poll_reply(
 }
 
 #[embassy_executor::task]
-pub(crate) async fn task(stack: &'static Stack<WifiDevice>) {
+pub(crate) async fn task(
+    stack: &'static Stack<WifiDevice>,
+    led: &'static mut SmartLedsAdapter<
+        ConfiguredChannel0<
+            'static,
+            GpioPin<
+                esp32c3_hal::gpio::Unknown,
+                Bank0GpioRegisterAccess,
+                SingleCoreInteruptStatusRegisterAccessBank0,
+                InputOutputAnalogPinType,
+                Gpio2Signals,
+                2,
+            >,
+        >,
+        { 12 * 24 + 1 },
+    >,
+) {
     let mut rx_meta = [PacketMetadata::EMPTY; 16];
     let mut rx_buffer = [0; 4096];
     let mut tx_meta = [PacketMetadata::EMPTY; 16];
@@ -440,13 +464,30 @@ pub(crate) async fn task(stack: &'static Stack<WifiDevice>) {
         if let Ok(packet) = Packet::parse(&buf[..length]) {
             match packet {
                 Packet::Poll(poll) => {
-                    println!("sending poll reply to {poll:x?}");
-                    Timer::after(Duration::from_millis(150)).await;
+                    //println!("sending poll reply to {poll:x?}");
+                    //Timer::after(Duration::from_millis(150)).await;
                     send_poll_reply(&mut socket, &my_address, &ep, &mut buf)
                         .await
                         .ok();
                 }
-                Packet::Output(output) => println!("got output packet: {output:x?}"),
+                Packet::Output(output) => {
+                    //println!("got output packet: {output:x?}");
+                    if output.sub_uni == 0 {
+                        // let brightness = output.data[9 + 6] as u16;
+                        // let r = output.data[9] as u16 * brightness / 256;
+                        // let g = output.data[10] as u16 * brightness / 256;
+                        // let b = output.data[11] as u16 * brightness / 256;
+                        led.write((0..12).map(|i| {
+                            let base = 32 + i / 1 * 3;
+                            let r = output.data[base + 0]; // as u16 * brightness / 256;
+                            let g = output.data[base + 1]; // as u16 * brightness / 256;
+                            let b = output.data[base + 2]; // as u16 * brightness / 256;
+
+                            RGB::new(r as u8, g as u8, b as u8)
+                        }))
+                        .unwrap()
+                    }
+                }
                 _ => (), //println!("artnet packet: {:x?}", &packet);
             }
         } else {

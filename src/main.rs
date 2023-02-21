@@ -18,17 +18,25 @@ use esp_backtrace as _;
 use esp_println::logger::init_logger;
 use esp_println::println;
 use esp_wifi::initialize;
-use esp_wifi::wifi::{WifiController, WifiDevice, WifiEvent, WifiState};
+use esp_wifi::wifi::{WifiController, WifiDevice, WifiEvent, WifiMode, WifiState};
 use hal::clock::{ClockControl, CpuClock};
+use hal::dma::{DmaPriority, *};
+use hal::gdma::*;
+use hal::prelude::*;
+use hal::pulse_control::ClockSource;
+use hal::spi::dma::SpiDma;
+use hal::spi::{Spi, SpiMode};
 use hal::system::SystemExt;
-use hal::Rng;
+use hal::utils::{smartLedAdapter, SmartLedsAdapter};
 use hal::{embassy, peripherals::Peripherals, prelude::*, timer::TimerGroup, Rtc};
-use riscv_rt::entry;
+use hal::{PulseControl, Rng, IO};
+//use riscv_rt::entry;
 use smoltcp::socket::tcp::State;
 
 mod artnet;
 mod buffer;
 mod web;
+mod ws2812;
 
 const SSID: Option<&str> = option_env!("SSID");
 const PASSWORD: Option<&str> = option_env!("PASSWORD");
@@ -42,6 +50,14 @@ macro_rules! singleton {
     }};
 }
 
+pub type SpiType<'d> = SpiDma<
+    'd,
+    hal::peripherals::SPI2,
+    ChannelTx<'d, Channel0TxImpl, hal::gdma::Channel0>,
+    ChannelRx<'d, Channel0RxImpl, hal::gdma::Channel0>,
+    SuitablePeripheral0,
+>;
+
 static EXECUTOR: StaticCell<Executor> = StaticCell::new();
 
 #[entry]
@@ -51,9 +67,9 @@ fn main() -> ! {
 
     let peripherals = Peripherals::take();
 
-    let system = peripherals.SYSTEM.split();
+    let mut system = peripherals.SYSTEM.split();
     let clocks = ClockControl::configure(system.clock_control, CpuClock::Clock160MHz).freeze();
-
+    let io = IO::new(peripherals.GPIO, peripherals.IO_MUX);
     let mut rtc = Rtc::new(peripherals.RTC_CNTL);
 
     // Disable watchdog timers
@@ -61,12 +77,56 @@ fn main() -> ! {
 
     rtc.rwdt.disable();
 
+    // let sclk = io.pins.gpio6;
+    // let miso = io.pins.gpio2;
+    // let mosi = io.pins.gpio7;
+    // let cs = io.pins.gpio10;
+
+    // let dma = Gdma::new(peripherals.DMA, &mut system.peripheral_clock_control);
+    // let dma_channel = dma.channel0;
+
+    // let descriptors = singleton!([0u32; 8 * 3]);
+    // let rx_descriptors = singleton!([0u32; 8 * 3]);
+
+    // let spi = singleton!(Spi::new(
+    //     peripherals.SPI2,
+    //     sclk,
+    //     mosi,
+    //     miso,
+    //     cs,
+    //     100u32.kHz(),
+    //     SpiMode::Mode0,
+    //     &mut system.peripheral_clock_control,
+    //     &clocks,
+    // )
+    // .with_dma(dma_channel.configure(
+    //     false,
+    //     descriptors,
+    //     rx_descriptors,
+    //     DmaPriority::Priority0,
+    //)));
+
+    // Configure RMT peripheral globally
+    let pulse = PulseControl::new(
+        peripherals.RMT,
+        &mut system.peripheral_clock_control,
+        ClockSource::APB,
+        0,
+        0,
+        0,
+    )
+    .unwrap();
+
+    // We use one of the RMT channels to instantiate a `SmartLedsAdapter` which can
+    // be used directly with all `smart_led` implementations
+    let led = singleton!(<smartLedAdapter!(12)>::new(pulse.channel0, io.pins.gpio2));
+
     {
         use hal::systimer::SystemTimer;
         let syst = SystemTimer::new(peripherals.SYSTIMER);
         initialize(syst.alarm0, Rng::new(peripherals.RNG), &clocks).unwrap();
     }
-    let (wifi_interface, controller) = esp_wifi::wifi::new();
+    let (wifi_interface, controller) = esp_wifi::wifi::new(WifiMode::Sta);
 
     let timer_group0 = TimerGroup::new(peripherals.TIMG0, &clocks);
     embassy::init(&clocks, timer_group0.timer0);
@@ -87,7 +147,7 @@ fn main() -> ! {
     executor.run(|spawner| {
         spawner.spawn(connection(controller)).ok();
         spawner.spawn(net_task(&stack)).ok();
-        spawner.spawn(artnet::task(&stack)).ok();
+        spawner.spawn(artnet::task(&stack, led)).ok();
         spawner.spawn(task(1, &stack)).ok();
         spawner.spawn(task(2, &stack)).ok();
         spawner.spawn(task(3, &stack)).ok();
