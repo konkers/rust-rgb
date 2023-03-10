@@ -77,49 +77,50 @@ fn main() -> ! {
 
     rtc.rwdt.disable();
 
-    // let sclk = io.pins.gpio6;
-    // let miso = io.pins.gpio2;
-    // let mosi = io.pins.gpio7;
-    // let cs = io.pins.gpio10;
+    let sclk = io.pins.gpio6;
+    let miso = io.pins.gpio7;
+    let mosi = singleton!(io.pins.gpio2);
+    let mosi_high = mosi.set_drive_strength(hal::gpio::DriveStrength::I40mA);
+    let cs = io.pins.gpio10;
 
-    // let dma = Gdma::new(peripherals.DMA, &mut system.peripheral_clock_control);
-    // let dma_channel = dma.channel0;
+    let dma = Gdma::new(peripherals.DMA, &mut system.peripheral_clock_control);
+    let dma_channel = dma.channel0;
 
-    // let descriptors = singleton!([0u32; 8 * 3]);
-    // let rx_descriptors = singleton!([0u32; 8 * 3]);
+    let descriptors = singleton!([0u32; 8 * 3]);
+    let rx_descriptors = singleton!([0u32; 8 * 3]);
 
-    // let spi = singleton!(Spi::new(
-    //     peripherals.SPI2,
-    //     sclk,
-    //     mosi,
-    //     miso,
-    //     cs,
-    //     100u32.kHz(),
-    //     SpiMode::Mode0,
-    //     &mut system.peripheral_clock_control,
-    //     &clocks,
-    // )
-    // .with_dma(dma_channel.configure(
-    //     false,
-    //     descriptors,
-    //     rx_descriptors,
-    //     DmaPriority::Priority0,
-    //)));
+    let spi = singleton!(Spi::new(
+        peripherals.SPI2,
+        sclk,
+        mosi_high,
+        miso,
+        cs,
+        2400u32.kHz(),
+        SpiMode::Mode0,
+        &mut system.peripheral_clock_control,
+        &clocks,
+    )
+    .with_dma(dma_channel.configure(
+        false,
+        descriptors,
+        rx_descriptors,
+        DmaPriority::Priority0,
+    )));
 
     // Configure RMT peripheral globally
-    let pulse = PulseControl::new(
-        peripherals.RMT,
-        &mut system.peripheral_clock_control,
-        ClockSource::APB,
-        0,
-        0,
-        0,
-    )
-    .unwrap();
+    // let pulse = PulseControl::new(
+    //     peripherals.RMT,
+    //     &mut system.peripheral_clock_control,
+    //     ClockSource::APB,
+    //     0,
+    //     0,
+    //     0,
+    // )
+    // .unwrap();
 
     // We use one of the RMT channels to instantiate a `SmartLedsAdapter` which can
     // be used directly with all `smart_led` implementations
-    let led = singleton!(<smartLedAdapter!(12)>::new(pulse.channel0, io.pins.gpio2));
+    //let led = singleton!(<smartLedAdapter!(12)>::new(pulse.channel0, io.pins.gpio2));
 
     {
         use hal::systimer::SystemTimer;
@@ -130,6 +131,11 @@ fn main() -> ! {
 
     let timer_group0 = TimerGroup::new(peripherals.TIMG0, &clocks);
     embassy::init(&clocks, timer_group0.timer0);
+    esp32c3_hal::interrupt::enable(
+        esp32c3_hal::peripherals::Interrupt::DMA_CH0,
+        esp32c3_hal::interrupt::Priority::Priority1,
+    )
+    .unwrap();
 
     let config = Config::Dhcp(Default::default());
 
@@ -147,7 +153,7 @@ fn main() -> ! {
     executor.run(|spawner| {
         spawner.spawn(connection(controller)).ok();
         spawner.spawn(net_task(&stack)).ok();
-        spawner.spawn(artnet::task(&stack, led)).ok();
+        spawner.spawn(artnet::task(&stack, spi)).ok();
         spawner.spawn(task(1, &stack)).ok();
         spawner.spawn(task(2, &stack)).ok();
         spawner.spawn(task(3, &stack)).ok();

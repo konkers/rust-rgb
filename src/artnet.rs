@@ -7,6 +7,7 @@ use embassy_net::{
     udp::UdpSocket, Config, IpListenEndpoint, PacketMetadata, Stack, StackResources,
 };
 use embassy_time::{Duration, Timer};
+use embedded_hal_async::spi::SpiBusWrite;
 use esp32c3_hal::gpio::{
     Bank0GpioRegisterAccess, Gpio2Signals, GpioPin, InputOutputAnalogPinType,
     SingleCoreInteruptStatusRegisterAccessBank0,
@@ -22,6 +23,7 @@ use smart_leds::{brightness, gamma, SmartLedsWrite, RGB};
 use smoltcp::wire::IpEndpoint;
 
 use crate::buffer::{self, MutBuffer, OldBuffer};
+use crate::ws2812::{self, Ws2812};
 
 #[derive(Debug)]
 pub enum Error {
@@ -423,26 +425,17 @@ async fn send_poll_reply(
 #[embassy_executor::task]
 pub(crate) async fn task(
     stack: &'static Stack<WifiDevice>,
-    led: &'static mut SmartLedsAdapter<
-        ConfiguredChannel0<
-            'static,
-            GpioPin<
-                esp32c3_hal::gpio::Unknown,
-                Bank0GpioRegisterAccess,
-                SingleCoreInteruptStatusRegisterAccessBank0,
-                InputOutputAnalogPinType,
-                Gpio2Signals,
-                2,
-            >,
-        >,
-        { 12 * 24 + 1 },
-    >,
+    spi: &'static mut crate::SpiType<'static>,
 ) {
     let mut rx_meta = [PacketMetadata::EMPTY; 16];
     let mut rx_buffer = [0; 4096];
     let mut tx_meta = [PacketMetadata::EMPTY; 16];
     let mut tx_buffer = [0; 4096];
     let mut buf = [0; 4096];
+
+    const NUM_LEDS: usize = 120;
+    const LED_BUF_LEN: usize = ws2812::buffer_len(NUM_LEDS);
+    let mut led_buf = [0u8; LED_BUF_LEN];
 
     let my_address = loop {
         if let Some(config) = stack.config() {
@@ -477,15 +470,18 @@ pub(crate) async fn task(
                         // let r = output.data[9] as u16 * brightness / 256;
                         // let g = output.data[10] as u16 * brightness / 256;
                         // let b = output.data[11] as u16 * brightness / 256;
-                        led.write((0..12).map(|i| {
-                            let base = 32 + i / 1 * 3;
+                        let mut ws = Ws2812::<LED_BUF_LEN>::new(&mut led_buf);
+                        for i in (0..NUM_LEDS) {
+                            let base = 32 + i / (NUM_LEDS / 10) * 3;
                             let r = output.data[base + 0]; // as u16 * brightness / 256;
                             let g = output.data[base + 1]; // as u16 * brightness / 256;
                             let b = output.data[base + 2]; // as u16 * brightness / 256;
 
-                            RGB::new(r as u8, g as u8, b as u8)
-                        }))
-                        .unwrap()
+                            ws.set_led(i, r, g, b);
+                        }
+                        let led_buf = ws.into_buf();
+
+                        let _ret = spi.write(&led_buf).await;
                     }
                 }
                 _ => (), //println!("artnet packet: {:x?}", &packet);
