@@ -11,6 +11,7 @@ use embassy_executor::Executor;
 use embassy_executor::_export::StaticCell;
 use embassy_net::tcp::TcpSocket;
 use embassy_net::{Config, IpListenEndpoint, Stack, StackResources};
+use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
 use embassy_time::{Duration, Timer};
 use embedded_svc::wifi::{ClientConfiguration, Configuration, Wifi};
 use esp32c3_hal as hal;
@@ -22,21 +23,32 @@ use esp_wifi::wifi::{WifiController, WifiDevice, WifiEvent, WifiMode, WifiState}
 use hal::clock::{ClockControl, CpuClock};
 use hal::dma::{DmaPriority, *};
 use hal::gdma::*;
+use hal::i2c::I2C;
 use hal::prelude::*;
 use hal::pulse_control::ClockSource;
 use hal::spi::dma::SpiDma;
 use hal::spi::{Spi, SpiMode};
 use hal::system::SystemExt;
 use hal::utils::{smartLedAdapter, SmartLedsAdapter};
-use hal::{embassy, peripherals::Peripherals, prelude::*, timer::TimerGroup, Rtc};
+use hal::{
+    embassy,
+    peripherals::{Peripherals, I2C0},
+    prelude::*,
+    timer::TimerGroup,
+    Rtc,
+};
 use hal::{PulseControl, Rng, IO};
 //use riscv_rt::entry;
 use smoltcp::socket::tcp::State;
 
 mod artnet;
 mod buffer;
+mod error;
+mod pd;
 mod web;
 mod ws2812;
+
+pub(crate) use error::{Error, Result};
 
 const SSID: Option<&str> = option_env!("SSID");
 const PASSWORD: Option<&str> = option_env!("PASSWORD");
@@ -77,11 +89,8 @@ fn main() -> ! {
 
     rtc.rwdt.disable();
 
-    let sclk = io.pins.gpio6;
-    let miso = io.pins.gpio7;
     let mosi = singleton!(io.pins.gpio2);
     let mosi_high = mosi.set_drive_strength(hal::gpio::DriveStrength::I40mA);
-    let cs = io.pins.gpio10;
 
     let dma = Gdma::new(peripherals.DMA, &mut system.peripheral_clock_control);
     let dma_channel = dma.channel0;
@@ -89,12 +98,9 @@ fn main() -> ! {
     let descriptors = singleton!([0u32; 8 * 3]);
     let rx_descriptors = singleton!([0u32; 8 * 3]);
 
-    let spi = singleton!(Spi::new(
+    let spi = singleton!(Spi::new_mosi_only(
         peripherals.SPI2,
-        sclk,
         mosi_high,
-        miso,
-        cs,
         2400u32.kHz(),
         SpiMode::Mode0,
         &mut system.peripheral_clock_control,
@@ -107,6 +113,16 @@ fn main() -> ! {
         DmaPriority::Priority0,
     )));
 
+    let i2c = singleton!(I2C::new(
+        peripherals.I2C0,
+        io.pins.gpio5,
+        io.pins.gpio6,
+        100u32.kHz(),
+        &mut system.peripheral_clock_control,
+        &clocks,
+    ));
+
+    let i2c = singleton!(Mutex::<NoopRawMutex, &'static mut I2C<'_, I2C0>>::new(i2c));
     // Configure RMT peripheral globally
     // let pulse = PulseControl::new(
     //     peripherals.RMT,
@@ -154,9 +170,10 @@ fn main() -> ! {
         spawner.spawn(connection(controller)).ok();
         spawner.spawn(net_task(&stack)).ok();
         spawner.spawn(artnet::task(&stack, spi)).ok();
-        spawner.spawn(task(1, &stack)).ok();
-        spawner.spawn(task(2, &stack)).ok();
-        spawner.spawn(task(3, &stack)).ok();
+        spawner.spawn(pd::task(i2c)).ok();
+        spawner.spawn(task(1, &stack, i2c)).ok();
+        spawner.spawn(task(2, &stack, i2c)).ok();
+        spawner.spawn(task(3, &stack, i2c)).ok();
     });
 }
 
@@ -202,7 +219,11 @@ async fn net_task(stack: &'static Stack<WifiDevice>) {
 }
 
 #[embassy_executor::task(pool_size = 4)]
-async fn task(task_n: u32, stack: &'static Stack<WifiDevice>) {
+async fn task(
+    task_n: u32,
+    stack: &'static Stack<WifiDevice>,
+    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C<'_, I2C0>>,
+) {
     let mut rx_buffer = [0; 4096];
     let mut tx_buffer = [0; 4096];
 
@@ -243,7 +264,7 @@ async fn task(task_n: u32, stack: &'static Stack<WifiDevice>) {
             println!("Connect from {:?}", remote);
         }
 
-        if let Err(e) = web::handle_connection(task_n, &mut socket).await {
+        if let Err(e) = web::handle_connection(task_n, &mut socket, &i2c).await {
             println!("web error {:?}", e)
         }
 

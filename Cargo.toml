@@ -44,6 +44,7 @@ httparse = { version = "1.8.0", default-features = false }
 byteorder = { version = "1.4.3", default-features = false }
 smart-leds = "0.3.0"
 embedded-hal-async = { version = "0.2.0-alpha.0" }
+bitfield-struct = "0.3"
 
 
 
