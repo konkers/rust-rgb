@@ -4,6 +4,7 @@
 #![feature(const_mut_refs)]
 #![feature(type_alias_impl_trait)]
 #![feature(error_in_core)]
+#![feature(iter_array_chunks)]
 
 use core::option_env;
 
@@ -48,7 +49,7 @@ mod pd;
 mod web;
 mod ws2812;
 
-pub(crate) use error::{Error, Result};
+pub use error::{Error, Result};
 
 const SSID: Option<&str> = option_env!("SSID");
 const PASSWORD: Option<&str> = option_env!("PASSWORD");
@@ -89,6 +90,7 @@ fn main() -> ! {
 
     rtc.rwdt.disable();
 
+    let pd_int_n = io.pins.gpio7.into_floating_input();
     let mosi = singleton!(io.pins.gpio2);
     let mosi_high = mosi.set_drive_strength(hal::gpio::DriveStrength::I40mA);
 
@@ -165,12 +167,19 @@ fn main() -> ! {
         seed
     ));
 
+    // Async requires the GPIO interrupt to wake futures
+    hal::interrupt::enable(
+        hal::peripherals::Interrupt::GPIO,
+        hal::interrupt::Priority::Priority1,
+    )
+    .unwrap();
+
     let executor = EXECUTOR.init(Executor::new());
     executor.run(|spawner| {
         spawner.spawn(connection(controller)).ok();
         spawner.spawn(net_task(&stack)).ok();
         spawner.spawn(artnet::task(&stack, spi)).ok();
-        spawner.spawn(pd::task(i2c)).ok();
+        spawner.spawn(pd::task(i2c, pd_int_n)).ok();
         spawner.spawn(task(1, &stack, i2c)).ok();
         spawner.spawn(task(2, &stack, i2c)).ok();
         spawner.spawn(task(3, &stack, i2c)).ok();
