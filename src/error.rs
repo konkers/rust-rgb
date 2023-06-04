@@ -1,4 +1,5 @@
 use core::convert::Infallible;
+use embassy_net::tcp;
 
 use crate::hal;
 
@@ -9,6 +10,8 @@ pub enum Error {
     NoCcDetected,
     Index,
     Infallible,
+    Tcp(tcp::Error),
+    Generic(&'static str),
 }
 
 impl core::fmt::Debug for Error {
@@ -20,6 +23,8 @@ impl core::fmt::Debug for Error {
             Self::NoCcDetected => write!(f, "No CC line detected"),
             Self::Index => write!(f, "Index error"),
             Self::Infallible => write!(f, "Infalible"),
+            Self::Tcp(arg0) => f.debug_tuple("TcpError").field(arg0).finish(),
+            Self::Generic(arg0) => f.debug_tuple("GenericError").field(arg0).finish(),
         }
     }
 }
@@ -41,6 +46,12 @@ impl From<hal::i2c::Error> for Error {
 impl From<Infallible> for Error {
     fn from(_e: Infallible) -> Self {
         Self::Infallible
+    }
+}
+
+impl From<tcp::Error> for Error {
+    fn from(value: tcp::Error) -> Self {
+        Self::Tcp(value)
     }
 }
 

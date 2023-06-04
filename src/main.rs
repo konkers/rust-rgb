@@ -124,6 +124,11 @@ fn main() -> ! {
     ));
 
     let i2c = singleton!(Mutex::<NoopRawMutex, &'static mut I2C<'_, I2C0>>::new(i2c));
+    esp32c3_hal::interrupt::enable(
+        hal::peripherals::Interrupt::I2C_EXT0,
+        hal::Priority::Priority1,
+    )
+    .unwrap();
     // Configure RMT peripheral globally
     // let pulse = PulseControl::new(
     //     peripherals.RMT,

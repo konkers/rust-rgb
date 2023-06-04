@@ -1,11 +1,10 @@
 use bitfield_struct::bitfield;
 use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
-use esp32c3_hal::i2c::I2C;
-use esp32c3_hal::peripherals::I2C0;
+use embedded_hal_async::i2c::I2c;
 use esp_println::println;
 
 use super::i2c::{i2c_read_u16, i2c_read_u8, i2c_write_u8};
-use crate::Result;
+use crate::{Error, Result};
 
 const ADDR: u8 = 0x6b;
 
@@ -93,15 +92,19 @@ pub struct PartInformation {
     _res: u8,
 }
 
-pub struct Bq25620 {
-    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C<'static, I2C0>>,
+pub struct Bq25620<I2C, E>
+where
+    I2C: I2c<Error = E> + 'static,
+    Error: From<E>,
+{
+    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C>,
 }
 
 #[macro_export]
 macro_rules! bq25620_read_reg8 {
-    ($i2c:expr, $reg:ident) => {
+    ($bq:expr, $reg:ident) => {
         async || -> Result<crate::pd::bq25620::$reg> {
-            crate::pd::bq25620::read_u8($i2c, crate::pd::bq25620::Register::$reg)
+            $bq.read_u8(crate::pd::bq25620::Register::$reg)
                 .await
                 .map(|val| crate::pd::bq25620::$reg::from(val))
         }()
@@ -110,64 +113,58 @@ macro_rules! bq25620_read_reg8 {
 
 #[macro_export]
 macro_rules! bq25620_write_reg8 {
-    ($i2c:expr, $reg:ident, $data:expr) => {
-        crate::pd::bq25620::write_u8($i2c, crate::pd::bq25620::Register::$reg, $data.into())
+    ($bq:expr, $reg:ident, $data:expr) => {
+        $bq.write_u8(crate::pd::bq25620::Register::$reg, $data.into())
     };
 }
 
 #[macro_export]
 macro_rules! bq25620_read_reg16 {
-    ($i2c:expr, $reg:ident) => {
+    ($bq:expr, $reg:ident) => {
         async || -> Result<crate::pd::bq25620::$reg> {
-            crate::pd::bq25620::read_u16($i2c, crate::pd::bq25620::Register::$reg)
+            $bq.read_u16(crate::pd::bq25620::Register::$reg)
                 .await
                 .map(|val| crate::pd::bq25620::$reg::from(val))
         }()
     };
 }
 
-impl Bq25620 {
-    pub fn new(i2c: &'static Mutex<NoopRawMutex, &'static mut I2C<'static, I2C0>>) -> Self {
+impl<I2C, E> Bq25620<I2C, E>
+where
+    I2C: I2c<Error = E>,
+    Error: From<E>,
+{
+    pub fn new(i2c: &'static Mutex<NoopRawMutex, &'static mut I2C>) -> Self {
         Self { i2c }
     }
 
     pub async fn init(&mut self) -> Result<()> {
-        let part_info = bq25620_read_reg8!(self.i2c, PartInformation).await?;
+        let part_info = bq25620_read_reg8!(self, PartInformation).await?;
         println!("bq part_info: {:?}", part_info);
 
         Ok(())
     }
 
     pub async fn tick(&mut self) -> Result<()> {
-        bq25620_write_reg8!(self.i2c, AdcControl, AdcControl::new().with_adc_en(true)).await?;
+        bq25620_write_reg8!(self, AdcControl, AdcControl::new().with_adc_en(true)).await?;
 
-        let val = bq25620_read_reg16!(self.i2c, VsysAdc).await?;
+        let val = bq25620_read_reg16!(self, VsysAdc).await?;
         println!("bq sys: {} uV", val.microvolts());
-        let val = bq25620_read_reg16!(self.i2c, VbusAdc).await?;
+        let val = bq25620_read_reg16!(self, VbusAdc).await?;
         println!("bq bus: {} uV", val.microvolts());
 
         Ok(())
     }
-}
 
-pub(crate) async fn read_u8(
-    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C<'_, I2C0>>,
-    register: Register,
-) -> Result<u8> {
-    i2c_read_u8(i2c, ADDR, register as u8).await
-}
+    pub(crate) async fn read_u8(&self, register: Register) -> Result<u8> {
+        i2c_read_u8(self.i2c, ADDR, register as u8).await
+    }
 
-pub(crate) async fn read_u16(
-    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C<'_, I2C0>>,
-    register: Register,
-) -> Result<u16> {
-    i2c_read_u16(i2c, ADDR, register as u8).await
-}
+    pub(crate) async fn read_u16(&self, register: Register) -> Result<u16> {
+        i2c_read_u16(self.i2c, ADDR, register as u8).await
+    }
 
-pub(crate) async fn write_u8(
-    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C<'_, I2C0>>,
-    register: Register,
-    data: u8,
-) -> Result<()> {
-    i2c_write_u8(i2c, ADDR, register as u8, data).await
+    pub(crate) async fn write_u8(&self, register: Register, data: u8) -> Result<()> {
+        i2c_write_u8(self.i2c, ADDR, register as u8, data).await
+    }
 }

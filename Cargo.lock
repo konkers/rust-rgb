@@ -520,8 +520,7 @@ dependencies = [
 [[package]]
 name = "esp-hal-common"
 version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d077ffedaa2632004cf73e713438a18706d6d04d2fb0632ffe5a5f02bb9c17e0"
+source = "git+https://github.com/esp-rs/esp-hal?rev=b43516682e383a072448a9af4eb1b4d0b8244cde#b43516682e383a072448a9af4eb1b4d0b8244cde"
 dependencies = [
  "basic-toml",
  "bitflags 2.3.1",
@@ -547,6 +546,7 @@ dependencies = [
  "esp32s3",
  "fugit",
  "lock_api",
+ "log",
  "nb 1.1.0",
  "paste",
  "riscv-atomic-emulation-trap",
@@ -561,8 +561,7 @@ dependencies = [
 [[package]]
 name = "esp-hal-procmacros"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14e4123798117de04121fcbd7991f0e2c3cfccf9a31017c94f611013be401080"
+source = "git+https://github.com/esp-rs/esp-hal?rev=b43516682e383a072448a9af4eb1b4d0b8244cde#b43516682e383a072448a9af4eb1b4d0b8244cde"
 dependencies = [
  "darling 0.14.4",
  "proc-macro-crate",
@@ -701,8 +700,7 @@ dependencies = [
 [[package]]
 name = "esp32c3-hal"
 version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb3469727f70c746eb2ad046f86e5f9e1f4b352d4976c16d1a3e58c0a6cac7e4"
+source = "git+https://github.com/esp-rs/esp-hal?rev=b43516682e383a072448a9af4eb1b4d0b8244cde#b43516682e383a072448a9af4eb1b4d0b8244cde"
 dependencies = [
  "cfg-if",
  "embassy-time 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",

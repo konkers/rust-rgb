@@ -1,8 +1,6 @@
 use bitfield_struct::bitfield;
 use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
-use esp32c3_hal::i2c::I2C;
-use esp32c3_hal::peripherals::I2C0;
-use esp32c3_hal::prelude::*;
+use embedded_hal_async::i2c::I2c;
 use num_derive::{FromPrimitive, ToPrimitive};
 
 use super::i2c::{i2c_read_u8, i2c_write_u8};
@@ -360,34 +358,51 @@ pub struct RxToken {
     pub token: RxTokenType,
 }
 
-pub(crate) async fn fusb302_read(
-    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C<'_, I2C0>>,
+pub(crate) async fn fusb302_read<I2C, E>(
+    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C>,
     register: Fusb302Register,
     data: &mut [u8],
-) -> Result<()> {
+) -> Result<()>
+where
+    I2C: I2c<Error = E>,
+    Error: From<E>,
+{
     let mut i2c = i2c.lock().await;
-    i2c.write_read(FUSB302_ADDR, &[register as u8], data)?;
+    i2c.write_read(FUSB302_ADDR, &[register as u8], data)
+        .await?;
     Ok(())
 }
 
-pub(crate) async fn fusb302_read_u8(
-    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C<'_, I2C0>>,
+pub(crate) async fn fusb302_read_u8<I2C, E>(
+    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C>,
     register: Fusb302Register,
-) -> Result<u8> {
+) -> Result<u8>
+where
+    I2C: I2c<Error = E>,
+    Error: From<E>,
+{
     i2c_read_u8(i2c, FUSB302_ADDR, register as u8).await
 }
 
-pub(crate) async fn fusb302_write_u8(
-    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C<'_, I2C0>>,
+pub(crate) async fn fusb302_write_u8<I2C, E>(
+    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C>,
     register: Fusb302Register,
     data: u8,
-) -> Result<()> {
+) -> Result<()>
+where
+    I2C: I2c<Error = E>,
+    Error: From<E>,
+{
     i2c_write_u8(i2c, FUSB302_ADDR, register as u8, data).await
 }
 
-pub(crate) async fn fusb302_read_status(
-    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C<'_, I2C0>>,
-) -> Result<Status> {
+pub(crate) async fn fusb302_read_status<I2C, E>(
+    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C>,
+) -> Result<Status>
+where
+    I2C: I2c<Error = E>,
+    Error: From<E>,
+{
     let mut data = [0u8; 7];
     fusb302_read(i2c, Fusb302Register::Status0A, &mut data).await?;
     Ok(Status {
@@ -401,33 +416,49 @@ pub(crate) async fn fusb302_read_status(
     })
 }
 
-pub(crate) async fn fusb302_read_fifo(
-    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C<'_, I2C0>>,
+pub(crate) async fn fusb302_read_fifo<I2C, E>(
+    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C>,
     buffer: &mut [u8],
-) -> Result<()> {
+) -> Result<()>
+where
+    I2C: I2c<Error = E>,
+    Error: From<E>,
+{
     fusb302_read(i2c, Fusb302Register::Fifos, buffer).await?;
     Ok(())
 }
 
-pub(crate) async fn fusb302_read_fifo_u8(
-    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C<'_, I2C0>>,
-) -> Result<u8> {
+pub(crate) async fn fusb302_read_fifo_u8<I2C, E>(
+    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C>,
+) -> Result<u8>
+where
+    I2C: I2c<Error = E>,
+    Error: From<E>,
+{
     let mut buffer = [0u8];
     fusb302_read(i2c, Fusb302Register::Fifos, &mut buffer).await?;
     Ok(buffer[0])
 }
 
-pub(crate) async fn fusb302_read_fifo_u16(
-    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C<'_, I2C0>>,
-) -> Result<u16> {
+pub(crate) async fn fusb302_read_fifo_u16<I2C, E>(
+    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C>,
+) -> Result<u16>
+where
+    I2C: I2c<Error = E>,
+    Error: From<E>,
+{
     let mut buffer = [0u8; 2];
     fusb302_read(i2c, Fusb302Register::Fifos, &mut buffer).await?;
     Ok(u16::from_le_bytes(buffer))
 }
 
-pub(crate) async fn fusb302_read_fifo_u32(
-    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C<'_, I2C0>>,
-) -> Result<u32> {
+pub(crate) async fn fusb302_read_fifo_u32<I2C, E>(
+    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C>,
+) -> Result<u32>
+where
+    I2C: I2c<Error = E>,
+    Error: From<E>,
+{
     let mut buffer = [0u8; 4];
     fusb302_read(i2c, Fusb302Register::Fifos, &mut buffer).await?;
     Ok(u32::from_le_bytes(buffer))
@@ -500,10 +531,14 @@ impl Fusb302MessageBuffer {
         Ok(())
     }
 
-    pub async fn send(
+    pub async fn send<I2C, E>(
         &self,
-        i2c: &'static Mutex<NoopRawMutex, &'static mut I2C<'_, I2C0>>,
-    ) -> Result<()> {
+        i2c: &'static Mutex<NoopRawMutex, &'static mut I2C>,
+    ) -> Result<()>
+    where
+        I2C: I2c<Error = E>,
+        Error: From<E>,
+    {
         let mut i2c = i2c.lock().await;
         let sop_seq = [
             Fusb302Register::Fifos as u8,
@@ -513,8 +548,8 @@ impl Fusb302MessageBuffer {
             TxToken::Sop2 as u8,
             TxToken::PackSym as u8 + (self.len - 1) as u8,
         ];
-        i2c.write(FUSB302_ADDR, &sop_seq)?;
-        i2c.write(FUSB302_ADDR, &self.buffer[..self.len])?;
+        i2c.write(FUSB302_ADDR, &sop_seq).await?;
+        i2c.write(FUSB302_ADDR, &self.buffer[..self.len]).await?;
         let eop_seq = [
             Fusb302Register::Fifos as u8,
             TxToken::JamCrc as u8,
@@ -522,7 +557,7 @@ impl Fusb302MessageBuffer {
             TxToken::TxOff as u8,
             TxToken::TxOn as u8,
         ];
-        i2c.write(FUSB302_ADDR, &eop_seq)?;
+        i2c.write(FUSB302_ADDR, &eop_seq).await?;
 
         Ok(())
     }

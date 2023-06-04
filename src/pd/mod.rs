@@ -2,6 +2,7 @@ use embassy_futures::join::join;
 use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
 use embassy_time::{Duration, Timer};
 use embedded_hal_async::digital::Wait;
+use embedded_hal_async::i2c::I2c;
 use esp32c3_hal::gpio::{
     Bank0GpioRegisterAccess, Floating, Gpio7Signals, GpioPin, Input, InputOutputPinType,
     SingleCoreInteruptStatusRegisterAccessBank0,
@@ -38,8 +39,12 @@ enum PdState {
     Online,
 }
 
-struct Pd {
-    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C<'static, I2C0>>,
+struct Pd<I2C, E>
+where
+    I2C: I2c<Error = E> + 'static,
+    Error: From<E>,
+{
+    i2c: &'static Mutex<NoopRawMutex, &'static mut I2C>,
     pd_int_n: GpioPin<
         Input<Floating>,
         Bank0GpioRegisterAccess,
@@ -55,9 +60,13 @@ struct Pd {
     message_id: u8,
 }
 
-impl Pd {
+impl<I2C, E> Pd<I2C, E>
+where
+    I2C: I2c<Error = E> + 'static,
+    Error: From<E>,
+{
     fn new(
-        i2c: &'static Mutex<NoopRawMutex, &'static mut I2C<'static, I2C0>>,
+        i2c: &'static Mutex<NoopRawMutex, &'static mut I2C>,
         pd_int_n: GpioPin<
             Input<Floating>,
             Bank0GpioRegisterAccess,
@@ -451,7 +460,11 @@ impl Pd {
     }
 }
 
-async fn handle_pd(mut pd: Pd) {
+async fn handle_pd<I2C, E>(mut pd: Pd<I2C, E>)
+where
+    I2C: I2c<Error = E>,
+    Error: From<E>,
+{
     loop {
         if let Err(e) = pd.tick().await {
             println!("pd_error: {e:?}");
@@ -459,7 +472,11 @@ async fn handle_pd(mut pd: Pd) {
     }
 }
 
-async fn handle_bq(mut bq: Bq25620) {
+async fn handle_bq<I2C, E>(mut bq: Bq25620<I2C, E>)
+where
+    I2C: I2c<Error = E>,
+    Error: From<E>,
+{
     println!("{:?}", bq.init().await);
     loop {
         if let Err(e) = bq.tick().await {

@@ -33,3 +33,11 @@ riscv-target = { version = "0.1.2" }
 [dev-dependencies]
 
 [features]
+
+
+[patch.crates-io]
+#esp32c3-hal = { path="../esp-hal/esp32c3-hal" }
+#esp-hal-common = { path="../esp-hal/esp-hal-common" }
+
+esp32c3-hal = { git="https://github.com/esp-rs/esp-hal", rev = "b43516682e383a072448a9af4eb1b4d0b8244cde" }
+esp-hal-common = { git="https://github.com/esp-rs/esp-hal", rev = "b43516682e383a072448a9af4eb1b4d0b8244cde" }

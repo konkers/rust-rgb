@@ -1,35 +1,12 @@
-use embassy_net::tcp::{self, TcpSocket};
+use embassy_net::tcp::TcpSocket;
 use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
+use embedded_hal_async::i2c::I2c;
 use embedded_io::asynch::Write;
 use esp32c3_hal::i2c::I2C;
 use esp32c3_hal::peripherals::I2C0;
-use esp32c3_hal::prelude::*;
 use esp_println::println;
 
-#[derive(Debug)]
-pub enum Error {
-    Generic(&'static str),
-    Tcp(tcp::Error),
-}
-
-impl core::fmt::Display for Error {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Error::Generic(s) => write!(f, "{}", s),
-            Error::Tcp(e) => write!(f, "tcp error: {:?}", e),
-        }
-    }
-}
-
-impl core::error::Error for Error {}
-
-impl From<tcp::Error> for Error {
-    fn from(value: tcp::Error) -> Self {
-        Self::Tcp(value)
-    }
-}
-
-type Result<T> = core::result::Result<T, Error>;
+use crate::{Error, Result};
 
 async fn send_static_gzip(socket: &mut TcpSocket<'_>, data: &[u8]) -> Result<()> {
     socket
@@ -47,20 +24,20 @@ async fn send_static(socket: &mut TcpSocket<'_>, data: &[u8]) -> Result<()> {
     Ok(())
 }
 
-async fn i2c_read(
+async fn i2c_read<I2C, E>(
     socket: &mut TcpSocket<'_>,
-    i2c: &Mutex<NoopRawMutex, &'static mut I2C<'_, I2C0>>,
+    i2c: &Mutex<NoopRawMutex, &'static mut I2C>,
     dev_addr: u8,
     reg_addr: u8,
-) -> Result<()> {
+) -> Result<()>
+where
+    I2C: I2c<Error = E>,
+    Error: From<E>,
+{
     let mut i2c = i2c.lock().await;
     let mut buffer = [0u8];
     println!("reading {reg_addr:x} from {dev_addr:x}");
-    i2c.write_read(dev_addr, &[reg_addr], &mut buffer)
-        .map_err(|e| {
-            println!("{e:?}");
-            Error::Generic("Error reading i2c")
-        })?;
+    i2c.write_read(dev_addr, &[reg_addr], &mut buffer).await?;
     println!("{buffer:x?}");
     socket
         .write_all(b"HTTP/1.0 200 OK\r\n\r\nlook at console")
@@ -68,13 +45,17 @@ async fn i2c_read(
     Ok(())
 }
 
-async fn i2c_read_multiple(
+async fn i2c_read_multiple<I2C, E>(
     socket: &mut TcpSocket<'_>,
-    i2c: &Mutex<NoopRawMutex, &'static mut I2C<'_, I2C0>>,
+    i2c: &Mutex<NoopRawMutex, &'static mut I2C>,
     dev_addr: u8,
     reg_addr: u8,
     len: usize,
-) -> Result<()> {
+) -> Result<()>
+where
+    I2C: I2c<Error = E>,
+    Error: From<E>,
+{
     if len > 16 {
         return Err(Error::Generic("can't read more than 16 bytes at once"));
     }
@@ -83,10 +64,7 @@ async fn i2c_read_multiple(
     let mut buffer = [0u8; 16];
     println!("reading {len} bytes from {reg_addr:x} from {dev_addr:x}");
     i2c.write_read(dev_addr, &[reg_addr], &mut buffer[..len])
-        .map_err(|e| {
-            println!("{e:?}");
-            Error::Generic("Error reading i2c")
-        })?;
+        .await?;
     println!("{buffer:x?}");
     socket
         .write_all(b"HTTP/1.0 200 OK\r\n\r\nlook at console")
@@ -94,19 +72,20 @@ async fn i2c_read_multiple(
     Ok(())
 }
 
-async fn i2c_write(
+async fn i2c_write<I2C, E>(
     socket: &mut TcpSocket<'_>,
-    i2c: &Mutex<NoopRawMutex, &'static mut I2C<'_, I2C0>>,
+    i2c: &Mutex<NoopRawMutex, &'static mut I2C>,
     dev_addr: u8,
     reg_addr: u8,
     data: u8,
-) -> Result<()> {
+) -> Result<()>
+where
+    I2C: I2c<Error = E>,
+    Error: From<E>,
+{
     let mut i2c = i2c.lock().await;
     println!("writing {data:x} to {reg_addr:x} from {dev_addr:x}");
-    i2c.write(dev_addr, &[reg_addr, data]).map_err(|e| {
-        println!("{e:?}");
-        Error::Generic("Error reading i2c")
-    })?;
+    i2c.write(dev_addr, &[reg_addr, data]).await?;
     socket
         .write_all(b"HTTP/1.0 200 OK\r\n\r\nlook at console")
         .await?;
