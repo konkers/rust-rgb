@@ -20,15 +20,15 @@ use esp32c3_hal as hal;
 use esp_backtrace as _;
 use esp_println::logger::init_logger;
 use esp_println::println;
-use esp_wifi::initialize;
 use esp_wifi::wifi::{WifiController, WifiDevice, WifiEvent, WifiMode, WifiState};
+use esp_wifi::{initialize, EspWifiInitFor};
 use hal::clock::{ClockControl, CpuClock};
 use hal::dma::{DmaPriority, *};
 use hal::gdma::*;
 use hal::i2c::I2C;
 use hal::prelude::*;
 use hal::spi::dma::SpiDma;
-use hal::spi::{Spi, SpiMode};
+use hal::spi::{FullDuplexMode, Spi, SpiMode};
 use hal::system::SystemExt;
 use hal::{
     embassy,
@@ -67,6 +67,7 @@ pub type SpiType<'d> = SpiDma<
     ChannelTx<'d, Channel0TxImpl, hal::gdma::Channel0>,
     ChannelRx<'d, Channel0RxImpl, hal::gdma::Channel0>,
     SuitablePeripheral0,
+    FullDuplexMode,
 >;
 
 static EXECUTOR: StaticCell<Executor> = StaticCell::new();
@@ -74,7 +75,7 @@ static EXECUTOR: StaticCell<Executor> = StaticCell::new();
 #[entry]
 fn main() -> ! {
     init_logger(log::LevelFilter::Info);
-    esp_wifi::init_heap();
+    //esp_wifi::init_heap();
 
     let peripherals = Peripherals::take();
 
@@ -138,14 +139,27 @@ fn main() -> ! {
     // be used directly with all `smart_led` implementations
     //let led = singleton!(<smartLedAdapter!(12)>::new(pulse.channel0, io.pins.gpio2));
 
-    {
-        use hal::systimer::SystemTimer;
-        let syst = SystemTimer::new(peripherals.SYSTIMER);
-        initialize(syst.alarm0, Rng::new(peripherals.RNG), &clocks).unwrap();
-    }
-    let (wifi_interface, controller) = esp_wifi::wifi::new(WifiMode::Sta);
+    use hal::systimer::SystemTimer;
+    let syst = SystemTimer::new(peripherals.SYSTIMER);
 
-    let timer_group0 = TimerGroup::new(peripherals.TIMG0, &clocks);
+    let init = initialize(
+        EspWifiInitFor::Wifi,
+        syst.alarm0,
+        Rng::new(peripherals.RNG),
+        system.radio_clock_control,
+        &clocks,
+    )
+    .unwrap();
+
+    let (wifi, _) = peripherals.RADIO.split();
+    let (wifi_interface, controller) = esp_wifi::wifi::new_with_mode(&init, wifi, WifiMode::Sta);
+
+    let timer_group0 = TimerGroup::new(
+        peripherals.TIMG0,
+        &clocks,
+        &mut system.peripheral_clock_control,
+    );
+
     embassy::init(&clocks, timer_group0.timer0);
     esp32c3_hal::interrupt::enable(
         esp32c3_hal::peripherals::Interrupt::DMA_CH0,
@@ -185,7 +199,7 @@ fn main() -> ! {
 }
 
 #[embassy_executor::task]
-async fn connection(mut controller: WifiController) {
+async fn connection(mut controller: WifiController<'static>) {
     println!("start connection task");
     println!("Device capabilities: {:?}", controller.get_capabilities());
     loop {
@@ -221,14 +235,14 @@ async fn connection(mut controller: WifiController) {
 }
 
 #[embassy_executor::task]
-async fn net_task(stack: &'static Stack<WifiDevice>) {
+async fn net_task(stack: &'static Stack<WifiDevice<'_>>) {
     stack.run().await
 }
 
 #[embassy_executor::task(pool_size = 4)]
 async fn task(
     task_n: u32,
-    stack: &'static Stack<WifiDevice>,
+    stack: &'static Stack<WifiDevice<'_>>,
     i2c: &'static Mutex<NoopRawMutex, &'static mut I2C<'_, I2C0>>,
 ) {
     let mut rx_buffer = [0; 4096];

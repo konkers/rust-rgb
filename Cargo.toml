@@ -6,20 +6,21 @@ edition = "2021"
 license = "MIT"
 
 [dependencies]
+atomic-polyfill = "1.0.1"
 bitfield-struct = "0.3"
 byteorder = { version = "1.4.3", default-features = false }
-embassy-executor  = { package = "embassy-executor", git = "https://github.com/embassy-rs/embassy/", rev = "cd9a65b", features = ["nightly", "integrated-timers"] }
+embassy-executor = { version = "0.2.0", package = "embassy-executor", features = ["arch-riscv32", "nightly", "executor-thread", "integrated-timers"] }
 embassy-futures = { version = "0.1.0" }
-embassy-net = { git = "https://github.com/embassy-rs/embassy", rev = "26474ce6eb759e5add1c137f3417845e0797df3a", features = ["nightly", "tcp", "udp", "dhcpv4", "medium-ethernet"] }
-embassy-sync = { version = "0.1.0" }
-embassy-time = { version = "0.1.0", features = ["nightly"] }
+embassy-net = { git = "https://github.com/embassy-rs/embassy", rev = "fb27594", features = ["nightly", "tcp", "udp", "dhcpv4", "medium-ethernet"] }
+embassy-sync = { version = "0.2.0" }
+embassy-time = { version = "0.1.1", features = ["nightly"] }
 embedded-hal-async = { version = "0.2.0-alpha.0" }
 embedded-io = { version = "0.4.0", features = ["async"] }
-embedded-svc = { version = "0.23.1", default-features = false, features = [] }
-esp-backtrace = { version = "0.4.0", features = [ "esp32c3", "panic-handler", "exception-handler", "print-uart" ] }
-esp-println = { version = "0.3.1", features = [ "esp32c3", "log" ] }
-esp-wifi = { path = "../esp-wifi/esp-wifi", features = ["embassy-net", "embedded-svc", "esp32c3", "esp32c3-async", "wifi"] }
-esp32c3-hal = { version = "0.7.0", features = ["embassy", "embassy-time-timg0", "async", "smartled" ] }
+embedded-svc = { version = "0.25.0", default-features = false, features = [] }
+esp-backtrace = { version = "0.7.0", features = ["esp32c3", "panic-handler", "exception-handler", "print-uart"] }
+esp-println = { version = "0.5.0", features = ["esp32c3", "log"] }
+esp-wifi = { git = "https://github.com/esp-rs/esp-wifi", rev = "44110b9dd3bce34b6d0936525d23840e472cdfb0", features = ["embassy-net", "embedded-svc", "esp32c3", "async", "wifi"] }
+esp32c3-hal = { version = "0.9.0", features = ["embassy", "embassy-time-timg0", "async" ] }
 httparse = { version = "1.8.0", default-features = false }
 log = "0.4.17"
 num-derive = { version = "0.3", features = ["full-syntax"] }

@@ -414,7 +414,7 @@ async fn send_poll_reply(
 
 #[embassy_executor::task]
 pub(crate) async fn task(
-    stack: &'static Stack<WifiDevice>,
+    stack: &'static Stack<WifiDevice<'static>>,
     spi: &'static mut crate::SpiType<'static>,
 ) {
     let mut rx_meta = [PacketMetadata::EMPTY; 16];
