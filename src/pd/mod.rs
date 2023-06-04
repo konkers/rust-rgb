@@ -1,3 +1,4 @@
+use embassy_futures::join::join;
 use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
 use embassy_time::{Duration, Timer};
 use embedded_hal_async::digital::Wait;
@@ -10,7 +11,9 @@ use esp32c3_hal::peripherals::I2C0;
 use esp_println::println;
 use num_traits::{FromPrimitive, ToPrimitive};
 
+mod bq25620;
 mod fusb302;
+mod i2c;
 mod proto;
 
 use crate::{fusb302_read_reg, fusb302_write_reg};
@@ -22,6 +25,8 @@ use fusb302::{
     RxTokenType, Status, Status0, Status1, Switches0, Switches1,
 };
 use proto::*;
+
+use self::bq25620::Bq25620;
 
 // Data messges have a max of 7 * 32 bit objects.
 const MAX_PAYLOAD_SIZE: usize = 7 * 4;
@@ -438,9 +443,26 @@ impl Pd {
         Ok(())
     }
     fn unhandled_message(&self, header: Header, payload: &[u8]) {
-        println!("unhandle message:");
-        println!("  {header:?}");
-        println!("  {payload:x?}");
+        // println!("unhandled message:");
+        // println!("  {header:?}");
+        // println!("  {payload:x?}");
+    }
+}
+
+async fn handle_pd(mut pd: Pd) {
+    loop {
+        if let Err(e) = pd.tick().await {
+            println!("pd_error: {e:?}");
+        }
+    }
+}
+
+async fn handle_bq(mut bq: Bq25620) {
+    println!("{:?}", bq.init().await);
+    loop {
+        if let Err(e) = bq.tick().await {
+            println!("bq_error: {e:?}");
+        }
     }
 }
 
@@ -456,10 +478,7 @@ pub(crate) async fn task(
         7,
     >,
 ) {
-    let mut pd = Pd::new(i2c, pd_int_n);
-    loop {
-        if let Err(e) = pd.tick().await {
-            println!("pd_error: {e:?}");
-        }
-    }
+    let mut pd = Pd::new(i2c.clone(), pd_int_n);
+    let mut bq = Bq25620::new(i2c);
+    join(handle_pd(pd), handle_bq(bq)).await;
 }

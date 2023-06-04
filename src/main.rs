@@ -5,6 +5,7 @@
 #![feature(type_alias_impl_trait)]
 #![feature(error_in_core)]
 #![feature(iter_array_chunks)]
+#![feature(async_closure)]
 
 use core::option_env;
 
@@ -45,6 +46,7 @@ use smoltcp::socket::tcp::State;
 mod artnet;
 mod buffer;
 mod error;
+mod i2creg;
 mod pd;
 mod web;
 mod ws2812;
