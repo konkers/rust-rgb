@@ -98,27 +98,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
-name = "bleps"
-version = "0.1.0"
-source = "git+https://github.com/bjoernQ/bleps?rev=33fde67257bfbc6c0aebf7649fd302c82ed94c64#33fde67257bfbc6c0aebf7649fd302c82ed94c64"
-dependencies = [
- "embedded-io 0.4.0",
- "log",
-]
-
-[[package]]
-name = "bleps-macros"
-version = "0.1.0"
-source = "git+https://github.com/bjoernQ/bleps?rev=33fde67257bfbc6c0aebf7649fd302c82ed94c64#33fde67257bfbc6c0aebf7649fd302c82ed94c64"
-dependencies = [
- "litrs",
- "proc-macro2",
- "quote",
- "syn",
- "uuid",
-]
-
-[[package]]
 name = "bytemuck"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -809,15 +788,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e322f259d225fbae43a1b053b2dc6a5968a6bdf8b205f5de684dab485b95030e"
 
 [[package]]
-name = "litrs"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9275e0933cf8bb20f008924c0cb07a0692fe54d8064996520bf998de9eb79aa"
-dependencies = [
- "proc-macro2",
-]
-
-[[package]]
 name = "lock_api"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1066,42 +1036,26 @@ dependencies = [
 name = "rust-rgb"
 version = "0.1.0"
 dependencies = [
- "atomic-polyfill 1.0.1",
  "bitfield-struct",
- "bleps",
- "bleps-macros",
  "byteorder",
  "embassy-executor",
  "embassy-futures",
  "embassy-net",
- "embassy-net-driver",
  "embassy-sync 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "embassy-time 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "embedded-hal 0.2.7",
  "embedded-hal-async 0.2.0-alpha.0",
  "embedded-io 0.4.0",
  "embedded-svc",
- "enumset",
  "esp-backtrace",
  "esp-println",
  "esp-wifi",
- "esp-wifi-sys",
- "esp32c3",
  "esp32c3-hal",
- "fugit",
- "futures-util",
- "heapless",
  "httparse",
- "linked_list_allocator",
  "log",
- "nb 1.0.0",
  "num-derive",
  "num-traits",
- "riscv",
  "riscv-target",
- "smart-leds",
  "smoltcp",
- "void",
 ]
 
 [[package]]
@@ -1149,15 +1103,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "smart-leds"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38dd45fa275f70b4110eac5f5182611ad384f88bb22b68b9a9c3cafd7015290b"
-dependencies = [
- "smart-leds-trait",
 ]
 
 [[package]]
@@ -1273,12 +1218,6 @@ name = "unicode-ident"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "84a22b9f218b40614adcb3f4ff08b703773ad44fa9423e4e0d346d5db86e4ebc"
-
-[[package]]
-name = "uuid"
-version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1674845326ee10d37ca60470760d4288a6f80f304007d92e5c53bab78c9cfd79"
 
 [[package]]
 name = "vcell"
