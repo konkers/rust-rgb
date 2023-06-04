@@ -27,20 +27,16 @@ use hal::dma::{DmaPriority, *};
 use hal::gdma::*;
 use hal::i2c::I2C;
 use hal::prelude::*;
-use hal::pulse_control::ClockSource;
 use hal::spi::dma::SpiDma;
 use hal::spi::{Spi, SpiMode};
 use hal::system::SystemExt;
-use hal::utils::{smartLedAdapter, SmartLedsAdapter};
 use hal::{
     embassy,
     peripherals::{Peripherals, I2C0},
-    prelude::*,
     timer::TimerGroup,
     Rtc,
 };
-use hal::{PulseControl, Rng, IO};
-//use riscv_rt::entry;
+use hal::{Rng, IO};
 use smoltcp::socket::tcp::State;
 
 mod artnet;

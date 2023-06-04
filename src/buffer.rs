@@ -19,20 +19,24 @@ impl core::error::Error for Error {}
 
 type Result<T> = core::result::Result<T, Error>;
 
+#[allow(dead_code)] // TODO: konkers - remember what I was doing here...
 pub struct Buffer<T> {
     inner: T,
     pos: usize,
 }
 
 impl<T> Buffer<T> {
+    #[allow(dead_code)]
     pub const fn new(inner: T) -> Buffer<T> {
         Buffer { pos: 0, inner }
     }
 
+    #[allow(dead_code)]
     pub fn into_inner(self) -> T {
         self.inner
     }
 
+    #[allow(dead_code)]
     pub const fn position(&self) -> usize {
         self.pos
     }
@@ -42,6 +46,7 @@ impl<T> Buffer<T>
 where
     T: AsRef<[u8]>,
 {
+    #[allow(dead_code)]
     fn ensure_space(&self, n_bytes: usize) -> Result<()> {
         if (self.pos + n_bytes) > self.inner.as_ref().len() as usize {
             Err(Error::Eof)
@@ -50,6 +55,7 @@ where
         }
     }
 
+    #[allow(dead_code)]
     pub fn take(&mut self, n_bytes: usize) -> Result<&[u8]> {
         self.ensure_space(n_bytes)?;
         let data = &self.inner.as_ref()[self.pos..(self.pos + n_bytes)];
@@ -73,6 +79,7 @@ impl<'a, ENDIAN: ByteOrder> OldBuffer<'a, ENDIAN> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn pos(&self) -> usize {
         self.pos
     }
@@ -102,16 +109,19 @@ impl<'a, ENDIAN: ByteOrder> OldBuffer<'a, ENDIAN> {
         Ok(ENDIAN::read_u16(data))
     }
 
+    #[allow(dead_code)]
     pub fn read_u32(&mut self) -> Result<u32> {
         let data = self.take(4)?;
         Ok(ENDIAN::read_u32(data))
     }
 
+    #[allow(dead_code)]
     pub fn read_u64(&mut self) -> Result<u64> {
         let data = self.take(8)?;
         Ok(ENDIAN::read_u64(data))
     }
 
+    #[allow(dead_code)]
     pub fn read_u128(&mut self) -> Result<u128> {
         let data = self.take(16)?;
         Ok(ENDIAN::read_u128(data))
@@ -158,6 +168,7 @@ impl<'a, ENDIAN: ByteOrder> MutBuffer<'a, ENDIAN> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn take(&mut self, n_bytes: usize) -> Result<&[u8]> {
         self.ensure_space(n_bytes)?;
         let data = &(self.data[self.pos..(self.pos + n_bytes)]);
@@ -172,26 +183,31 @@ impl<'a, ENDIAN: ByteOrder> MutBuffer<'a, ENDIAN> {
         Ok(data)
     }
 
+    #[allow(dead_code)]
     pub fn read_u8(&mut self) -> Result<u8> {
         let data = self.take(1)?;
         Ok(data[0])
     }
 
+    #[allow(dead_code)]
     pub fn read_u16(&mut self) -> Result<u16> {
         let data = self.take(2)?;
         Ok(ENDIAN::read_u16(data))
     }
 
+    #[allow(dead_code)]
     pub fn read_u32(&mut self) -> Result<u32> {
         let data = self.take(4)?;
         Ok(ENDIAN::read_u32(data))
     }
 
+    #[allow(dead_code)]
     pub fn read_u64(&mut self) -> Result<u64> {
         let data = self.take(8)?;
         Ok(ENDIAN::read_u64(data))
     }
 
+    #[allow(dead_code)]
     pub fn read_u128(&mut self) -> Result<u128> {
         let data = self.take(16)?;
         Ok(ENDIAN::read_u128(data))
@@ -209,24 +225,28 @@ impl<'a, ENDIAN: ByteOrder> MutBuffer<'a, ENDIAN> {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn write_u32(&mut self, val: u32) -> Result<()> {
         let data = self.take_mut(4)?;
         ENDIAN::write_u32(data, val);
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn write_u64(&mut self, val: u64) -> Result<()> {
         let data = self.take_mut(8)?;
         ENDIAN::write_u64(data, val);
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn write_u128(&mut self, val: u128) -> Result<()> {
         let data = self.take_mut(16)?;
         ENDIAN::write_u128(data, val);
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn read_buf(&mut self, buf: &mut [u8]) -> Result<()> {
         let data = self.take_mut(buf.len())?;
         buf.copy_from_slice(data);
@@ -239,6 +259,7 @@ impl<'a, ENDIAN: ByteOrder> MutBuffer<'a, ENDIAN> {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn read<const N: usize>(&mut self) -> Result<[u8; N]> {
         let mut buf = [0u8; N];
         let data = self.take(buf.len())?;

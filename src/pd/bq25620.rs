@@ -1,22 +1,16 @@
 use bitfield_struct::bitfield;
 use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
-use embassy_time::{Duration, Timer};
-use embedded_hal_async::digital::Wait;
-use esp32c3_hal::gpio::{
-    Bank0GpioRegisterAccess, Floating, Gpio7Signals, GpioPin, Input, InputOutputPinType,
-    SingleCoreInteruptStatusRegisterAccessBank0,
-};
 use esp32c3_hal::i2c::I2C;
 use esp32c3_hal::peripherals::I2C0;
 use esp_println::println;
-use num_traits::{FromPrimitive, ToPrimitive};
 
 use super::i2c::{i2c_read_u16, i2c_read_u8, i2c_write_u8};
-use crate::{Error, Result};
+use crate::Result;
 
 const ADDR: u8 = 0x6b;
 
 #[repr(u8)]
+#[allow(dead_code)]
 pub enum Register {
     ChargeCurrentLimit = 0x02,
     ChargeCurrentVoltageLimit = 0x04,

@@ -1,15 +1,9 @@
 use bitfield_struct::bitfield;
-use embassy_net::tcp::{self, TcpSocket};
 use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
-use embassy_time::{Duration, Timer};
-use embedded_io::asynch::{Read, Write};
-use esp32c3::i2c0::to;
 use esp32c3_hal::i2c::I2C;
 use esp32c3_hal::peripherals::I2C0;
 use esp32c3_hal::prelude::*;
-use esp_println::println;
 use num_derive::{FromPrimitive, ToPrimitive};
-use num_traits::{FromPrimitive, ToPrimitive};
 
 use super::i2c::{i2c_read_u8, i2c_write_u8};
 use crate::{Error, Result};
@@ -17,6 +11,7 @@ use crate::{Error, Result};
 const FUSB302_ADDR: u8 = 0x22;
 
 #[repr(u8)]
+#[allow(unused)]
 pub enum Fusb302Register {
     DeviceId = 0x01,
     Switches0 = 0x02,

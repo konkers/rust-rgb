@@ -1,25 +1,14 @@
 use core::array::TryFromSliceError;
-use core::cmp::{max, min};
+use core::cmp::min;
 
 use byteorder::LittleEndian;
 use embassy_net::{udp, IpAddress, Ipv4Address};
-use embassy_net::{
-    udp::UdpSocket, Config, IpListenEndpoint, PacketMetadata, Stack, StackResources,
-};
+use embassy_net::{udp::UdpSocket, PacketMetadata, Stack};
 use embassy_time::{Duration, Timer};
 use embedded_hal_async::spi::SpiBusWrite;
-use esp32c3_hal::gpio::{
-    Bank0GpioRegisterAccess, Gpio2Signals, GpioPin, InputOutputAnalogPinType,
-    SingleCoreInteruptStatusRegisterAccessBank0,
-};
-use esp32c3_hal::pulse_control::{Channel0, ConfiguredChannel0};
-use esp32c3_hal::utils::SmartLedsAdapter;
-use esp32c3_hal::PulseControl;
-use esp_println::println;
-use esp_wifi::wifi::{WifiController, WifiDevice, WifiEvent, WifiState};
+use esp_wifi::wifi::WifiDevice;
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
-use smart_leds::{brightness, gamma, SmartLedsWrite, RGB};
 use smoltcp::wire::IpEndpoint;
 
 use crate::buffer::{self, MutBuffer, OldBuffer};
@@ -130,6 +119,7 @@ pub enum NodeRepotCode {
 
 #[derive(Clone, Copy, Debug)]
 #[repr(u8)]
+#[allow(dead_code)]
 pub enum StyleCode {
     Node = 0x00,
     Controller = 0x01,
@@ -287,12 +277,12 @@ impl PollReply {
 
 #[derive(Debug)]
 pub struct Output<'a> {
-    prot_ver: [u8; 2],
-    sequence: u8,
-    physical: u8,
-    sub_uni: u8,
-    net: u8,
-    data: &'a [u8],
+    pub prot_ver: [u8; 2],
+    pub sequence: u8,
+    pub physical: u8,
+    pub sub_uni: u8,
+    pub net: u8,
+    pub data: &'a [u8],
 }
 impl<'a> Output<'a> {
     fn parse(buf: &mut OldBuffer<'a, LittleEndian>) -> Result<Self> {
@@ -373,7 +363,7 @@ fn padded_byte_str<const N: usize>(data: &[u8]) -> [u8; N] {
 async fn send_poll_reply(
     socket: &mut UdpSocket<'_>,
     my_address: &Ipv4Address,
-    ep: &IpEndpoint,
+    _ep: &IpEndpoint,
     buf: &mut [u8],
 ) -> Result<()> {
     let reply = Packet::PollReply(PollReply {
@@ -456,7 +446,7 @@ pub(crate) async fn task(
         let (length, ep) = socket.recv_from(&mut buf).await.unwrap();
         if let Ok(packet) = Packet::parse(&buf[..length]) {
             match packet {
-                Packet::Poll(poll) => {
+                Packet::Poll(_poll) => {
                     //println!("sending poll reply to {poll:x?}");
                     //Timer::after(Duration::from_millis(150)).await;
                     send_poll_reply(&mut socket, &my_address, &ep, &mut buf)
@@ -471,7 +461,7 @@ pub(crate) async fn task(
                         // let g = output.data[10] as u16 * brightness / 256;
                         // let b = output.data[11] as u16 * brightness / 256;
                         let mut ws = Ws2812::<LED_BUF_LEN>::new(&mut led_buf);
-                        for i in (0..NUM_LEDS) {
+                        for i in 0..NUM_LEDS {
                             let base = 32 + i / (NUM_LEDS / 10) * 3;
                             let r = output.data[base + 0]; // as u16 * brightness / 256;
                             let g = output.data[base + 1]; // as u16 * brightness / 256;

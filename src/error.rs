@@ -39,7 +39,7 @@ impl From<hal::i2c::Error> for Error {
 }
 
 impl From<Infallible> for Error {
-    fn from(e: Infallible) -> Self {
+    fn from(_e: Infallible) -> Self {
         Self::Infallible
     }
 }

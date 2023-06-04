@@ -38,6 +38,7 @@ impl<'a, const BUF_SIZE: usize> Ws2812<'a, BUF_SIZE> {
         &mut buf[3..]
     }
 
+    #[allow(dead_code)]
     pub fn num_leds() -> usize {
         (BUF_SIZE - RESET_LEN * 2) / 9
     }

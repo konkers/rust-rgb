@@ -9,7 +9,7 @@ use esp32c3_hal::gpio::{
 use esp32c3_hal::i2c::I2C;
 use esp32c3_hal::peripherals::I2C0;
 use esp_println::println;
-use num_traits::{FromPrimitive, ToPrimitive};
+use num_traits::FromPrimitive;
 
 mod bq25620;
 mod fusb302;
@@ -443,9 +443,11 @@ impl Pd {
         Ok(())
     }
     fn unhandled_message(&self, header: Header, payload: &[u8]) {
-        // println!("unhandled message:");
-        // println!("  {header:?}");
-        // println!("  {payload:x?}");
+        if false {
+            println!("unhandled message:");
+            println!("  {header:?}");
+            println!("  {payload:x?}");
+        }
     }
 }
 
@@ -478,7 +480,7 @@ pub(crate) async fn task(
         7,
     >,
 ) {
-    let mut pd = Pd::new(i2c.clone(), pd_int_n);
-    let mut bq = Bq25620::new(i2c);
+    let pd = Pd::new(i2c.clone(), pd_int_n);
+    let bq = Bq25620::new(i2c);
     join(handle_pd(pd), handle_bq(bq)).await;
 }

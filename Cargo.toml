@@ -11,10 +11,8 @@ nb = "1.0.0"
 void = { version = "1.0.2", default-features = false }
 esp32c3-hal = { version = "0.7.0", features = ["embassy", "embassy-time-timg0", "async", "smartled" ] }
 esp32c3 = { version = "0.11.0",  features = ["critical-section"] }
-#riscv-rt = { version = "0.11.0" }
 riscv = { version = "0.10.1" }
 smoltcp = { version = "0.9.1", default-features=false, features = ["proto-igmp", "proto-ipv4", "socket-tcp", "socket-icmp", "socket-udp", "medium-ethernet", "proto-dhcpv4", "socket-raw", "socket-dhcpv4"] }
-#critical-section = "1.1.1"
 atomic-polyfill = "1.0.1"
 log = "0.4.17"
 embedded-svc = { version = "0.23.1", default-features = false, features = [] }
@@ -27,8 +25,6 @@ num-derive = { version = "0.3", features = ["full-syntax"] }
 num-traits = { version = "0.2", default-features = false }
 esp-wifi = { path = "../esp-wifi/esp-wifi", features = ["embassy-net", "embedded-svc", "esp32c3", "esp32c3-async", "wifi"] }
 esp-wifi-sys = { path = "../esp-wifi/esp-wifi-sys", features = ["esp32c3"] }
-#esp-wifi = { git="https://github.com/esp-rs/esp-wifi", rev = "71603b95fd148c0d303ede4779ca3f557415d754", features = ["embassy-net", "embedded-svc", "esp32c3", "esp32c3-async", "wifi"] }
-#esp-wifi-sys = { git="https://github.com/esp-rs/esp-wifi", rev = "71603b95fd148c0d303ede4779ca3f557415d754", features = ["esp32c3"] }
 embassy-sync = { version = "0.1.0" }
 embassy-futures = { version = "0.1.0" }
 embassy-net = { git = "https://github.com/embassy-rs/embassy", rev = "26474ce6eb759e5add1c137f3417845e0797df3a", features = ["nightly", "tcp", "udp", "dhcpv4", "medium-ethernet"]}
@@ -44,7 +40,6 @@ httparse = { version = "1.8.0", default-features = false }
 byteorder = { version = "1.4.3", default-features = false }
 smart-leds = "0.3.0"
 embedded-hal-async = { version = "0.2.0-alpha.0" }
-
 bitfield-struct = "0.3"
 
 

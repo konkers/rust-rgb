@@ -1,6 +1,6 @@
 use embassy_net::tcp::{self, TcpSocket};
 use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
-use embedded_io::asynch::{Read, Write};
+use embedded_io::asynch::Write;
 use esp32c3_hal::i2c::I2C;
 use esp32c3_hal::peripherals::I2C0;
 use esp32c3_hal::prelude::*;

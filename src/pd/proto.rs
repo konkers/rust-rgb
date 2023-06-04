@@ -64,11 +64,6 @@ pub enum DataMessageType {
     VendorDefined = 0b01111,
 }
 
-pub enum MessageType {
-    Control(ControlMessageType),
-    Data(DataMessageType),
-}
-
 #[bitfield(u32)]
 pub struct FixedSupplyPdo {
     #[bits(10)]
@@ -128,25 +123,5 @@ impl FixedSupplyPdo {
 
     pub fn power(&self) -> u32 {
         self.voltage() * self.max_current() / 1000
-    }
-}
-
-#[derive(Clone, Copy)]
-pub enum DataObject {
-    FixedSupplyPdo(FixedSupplyPdo),
-    None,
-}
-
-pub struct Message {
-    pub header: Header,
-    data_object_store: [DataObject; 7],
-}
-
-impl Message {
-    pub fn new(header: Header, raw_data: &[u8]) -> Result<Self> {
-        Ok(Self {
-            header,
-            data_object_store: [DataObject::None; 7],
-        })
     }
 }
